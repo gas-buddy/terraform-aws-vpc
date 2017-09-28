@@ -45,12 +45,12 @@ resource "aws_route" "public_internet_gateway" {
 # Private routes
 #################
 resource "aws_route_table" "private" {
-  count = "${var.enable_nat_gateway ? length(var.azs) : 0}"
+  count = "${var.enable_nat_gateway ? (var.single_nat_gateway ? 1 : length(var.azs)) : 0}"
 
   vpc_id           = "${aws_vpc.this.id}"
   propagating_vgws = ["${var.private_propagating_vgws}"]
 
-  tags = "${merge(var.tags, var.private_route_table_tags, map("Name", format("%s-private-%s", var.name, element(var.azs, count.index))))}"
+  tags = "${merge(var.tags, var.private_route_table_tags, map("Name", (var.single_nat_gateway ? "${var.name}-private" : format("%s-private-%s", var.name, element(var.azs, count.index)))))}"
 }
 
 ################
@@ -143,7 +143,7 @@ resource "aws_nat_gateway" "this" {
 }
 
 resource "aws_route" "private_nat_gateway" {
-  count = "${var.enable_nat_gateway ? length(var.azs) : 0}"
+  count = "${var.enable_nat_gateway ? (var.single_nat_gateway ? 1 : length(var.azs)) : 0}"
 
   route_table_id         = "${element(aws_route_table.private.*.id, count.index)}"
   destination_cidr_block = "0.0.0.0/0"
