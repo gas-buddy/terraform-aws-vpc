@@ -45,7 +45,7 @@ resource "aws_route" "public_internet_gateway" {
 # Private routes
 #################
 resource "aws_route_table" "private" {
-  count = "${var.enable_nat_gateway ? (var.single_nat_gateway ? 1 : length(var.private_subnets)) : 0}"
+  count = "${var.single_nat_gateway ? 1 : length(var.private_subnets)}"
 
   vpc_id           = "${aws_vpc.this.id}"
   propagating_vgws = ["${var.private_propagating_vgws}"]
@@ -165,7 +165,7 @@ resource "aws_vpc_endpoint" "s3" {
 }
 
 resource "aws_vpc_endpoint_route_table_association" "private_s3" {
-  count = "${var.enable_s3_endpoint ? length(var.private_subnets) : 0}"
+  count = "${var.enable_s3_endpoint ? (var.single_nat_gateway ? 1 : length(var.private_subnets)) : 0}"
 
   vpc_endpoint_id = "${aws_vpc_endpoint.s3.id}"
   route_table_id  = "${element(aws_route_table.private.*.id, count.index)}"
@@ -195,7 +195,7 @@ resource "aws_vpc_endpoint" "dynamodb" {
 }
 
 resource "aws_vpc_endpoint_route_table_association" "private_dynamodb" {
-  count = "${var.enable_dynamodb_endpoint ? length(var.private_subnets) : 0}"
+  count = "${var.enable_dynamodb_endpoint ? (var.single_nat_gateway ? 1 : length(var.private_subnets)) : 0}"
 
   vpc_endpoint_id = "${aws_vpc_endpoint.dynamodb.id}"
   route_table_id  = "${element(aws_route_table.private.*.id, count.index)}"
@@ -212,24 +212,24 @@ resource "aws_vpc_endpoint_route_table_association" "public_dynamodb" {
 # Route table association
 ##########################
 resource "aws_route_table_association" "private" {
-  count = "${var.enable_nat_gateway ? (var.single_nat_gateway ? 1 : length(var.private_subnets)) : 0}"
+  count = "${length(var.private_subnets)}"
 
   subnet_id      = "${element(aws_subnet.private.*.id, count.index)}"
-  route_table_id = "${element(aws_route_table.private.*.id, count.index)}"
+  route_table_id = "${element(aws_route_table.private.*.id, (var.single_nat_gateway ? 0 : count.index))}"
 }
 
 resource "aws_route_table_association" "database" {
   count = "${length(var.database_subnets)}"
 
   subnet_id      = "${element(aws_subnet.database.*.id, count.index)}"
-  route_table_id = "${element(aws_route_table.private.*.id, count.index)}"
+  route_table_id = "${element(aws_route_table.private.*.id, (var.single_nat_gateway ? 0 : count.index))}"
 }
 
 resource "aws_route_table_association" "elasticache" {
   count = "${length(var.elasticache_subnets)}"
 
   subnet_id      = "${element(aws_subnet.elasticache.*.id, count.index)}"
-  route_table_id = "${element(aws_route_table.private.*.id, count.index)}"
+  route_table_id = "${element(aws_route_table.private.*.id, (var.single_nat_gateway ? 0 : count.index))}"
 }
 
 resource "aws_route_table_association" "public" {
